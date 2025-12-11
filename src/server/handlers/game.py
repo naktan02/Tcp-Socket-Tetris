@@ -70,3 +70,25 @@ def handle_move(client, packet):
     # 나를 제외한(exclude_client=client) 모두에게 전송
     relay_payload = struct.pack('>B B', my_slot, keycode)
     room.broadcast(Packet(CMD_NOTI_MOVE, relay_payload), exclude_client=client)
+
+@router.route(CMD_REQ_GAMEOVER)
+def handle_gameover(client, packet):
+    """클라이언트가 자신이 게임오버되었음을 알림"""
+    if not hasattr(client, 'room_id') or client.room_id is None: return
+    room = room_manager.get_room(client.room_id)
+    if not room or not room.is_playing: return
+   
+    score = 0
+    if len(packet.body) >= 4:
+        score = struct.unpack('>I', packet.body[:4])[0]
+
+    # 내 슬롯 찾기
+    my_slot = -1
+    for i, user in enumerate(room.slots):
+        if user == client:
+            my_slot = i
+            break
+    
+    if my_slot != -1:
+        # 방 로직에 위임 (생존자 체크 및 게임 종료 판단)
+        room.handle_player_death(my_slot, score)

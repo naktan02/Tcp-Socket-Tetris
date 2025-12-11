@@ -30,7 +30,7 @@ class SceneManager:
         # 대기실 데이터
         self.room_slots = [None] * MAX_ROOM_SLOTS # 닉네임 저장
         self.room_ready = [False] * MAX_ROOM_SLOTS # 준비 상태 저장
-        self.PROMPT_LINE = 22
+        self.PROMPT_LINE = 20
 
     def run(self):
         while self.running:
@@ -138,8 +138,7 @@ class SceneManager:
                     print("[Refresh] Updating list...", end='', flush=True)
                     self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
                     # 잠시 후 UI 갱신은 패킷 수신부에서 처리되거나, 여기서 잠시 대기
-                    time.sleep(0.2)
-                    self._refresh_lobby_ui()
+
                     
                 elif cmd == 'Q':
                     self.running = False
@@ -162,12 +161,16 @@ class SceneManager:
                         rid = struct.unpack('>H', pkt.body[offset:offset+2])[0]
                         offset += 2
                         
+                        # [FIX] 상태(Playing/Waiting) 바이트 읽기
+                        status = pkt.body[offset]
+                        offset += 1
+                        
                         tlen = pkt.body[offset]
                         offset += 1
                         
                         title = pkt.body[offset:offset+tlen].decode('utf-8')
                         offset += tlen
-                        self.room_list.append({'id': rid, 'title': title})
+                        self.room_list.append({'id': rid, 'title': title, 'status': status})
                     
                     # 목록을 받으면 화면을 새로고침
                     self._refresh_lobby_ui()
@@ -199,9 +202,9 @@ class SceneManager:
         """로비 화면 및 하단 메뉴 다시 그리기"""
         self.renderer.draw_lobby(self.room_list)
         # 하단 프롬프트 위치를 상수로 통일 (Line 19)
+        
         self.renderer.clear_line(self.PROMPT_LINE)
         self.renderer.move_cursor(1, self.PROMPT_LINE)
-        print("Command [C:Create, J:Join, R:Refresh, Q:Quit]: ", end='', flush=True)
 
     def _init_room_data(self):
         """방 진입 전 데이터 초기화"""
@@ -232,19 +235,19 @@ class SceneManager:
                     # [SlotID] [NickName]
                     slot = pkt.body[0]
                     nick = pkt.body[1:].decode('utf-8')
-                    if slot < 2:
+                    if slot < MAX_ROOM_SLOTS:
                         self.room_slots[slot] = nick
                         self.room_ready[slot] = False
                 
                 elif pkt.cmd == CMD_NOTI_LEAVE_ROOM:
                     slot = pkt.body[0]
-                    if slot < 2:
+                    if slot < MAX_ROOM_SLOTS:
                         self.room_slots[slot] = None
                         self.room_ready[slot] = False
 
                 elif pkt.cmd == CMD_NOTI_READY_STATE:
                     slot, state = struct.unpack('>B B', pkt.body)
-                    if slot < 2:
+                    if slot < MAX_ROOM_SLOTS:
                         self.room_ready[slot] = bool(state)
 
                 elif pkt.cmd == CMD_NOTI_GAME_START:
@@ -271,46 +274,90 @@ class SceneManager:
         """인게임 루프"""
         self.renderer.clear_screen()
         last_tick = time.time()
+        sent_gameover = False
+        winner_slot = -1
+        game_finished = False # 결과 화면 표시 모드
         
+        # [NEW] 결과 오버레이 메시지 저장용
+        result_msg = ""
+        my_final_score = 0
+
         while self.state == "GAME":
-            # 1. 내 입력 처리
+            # 1. 입력 처리
             action = self.input_handler.get_action()
             if action:
-                if action == Action.QUIT:
-                    self.running = False
-                    return
-                
-                # 내 게임 조작 및 서버 전송
-                if self.my_slot in self.games:
-                    self.games[self.my_slot].process_input(action)
-                    # 키보드 입력을 서버로 전송
-                    self.network.send_packet(Packet(CMD_REQ_MOVE, bytes([action.value])))
+                if game_finished:
+                    if action == Action.QUIT: # 결과 창에서 Q -> 대기실
+                        self.state = "ROOM"
 
-            # 2. 서버 패킷 처리 (상대방 움직임)
+                        self.room_ready = [False] * MAX_ROOM_SLOTS
+                        self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b'')) 
+                        return
+                else:
+                    # 게임 중 Quit -> 강제 종료 (로비로)
+                    if action == Action.QUIT:
+                        self.network.send_packet(Packet(CMD_REQ_LEAVE_ROOM, b''))
+                        self.state = "LOBBY"
+                        self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
+                        return
+                    
+                    if self.my_slot in self.games:
+                        self.games[self.my_slot].process_input(action)
+                        self.network.send_packet(Packet(CMD_REQ_MOVE, bytes([action.value])))
+
+            # 2. 게임 상태 체크 (사망 여부)
+            if not game_finished and not sent_gameover:
+                my_game = self.games.get(self.my_slot)
+                if my_game and my_game.game_over:
+                    # [FIX] 점수 포함해서 전송
+                    score = my_game.score
+                    print(f"Sending GAMEOVER (Score: {score})...")
+                    payload = struct.pack('>I', score)
+                    self.network.send_packet(Packet(CMD_REQ_GAMEOVER, payload))
+                    sent_gameover = True
+
+            # 3. 네트워크 패킷 처리
             while True:
                 pkt = self.network.get_packet()
                 if not pkt: break
                 
                 if pkt.cmd == CMD_NOTI_MOVE:
-                    # [SlotID] [KeyCode]
                     slot, keycode = struct.unpack('>B B', pkt.body)
-                    
-                    # 내가 아닌 다른 사람의 움직임 반영
                     if slot != self.my_slot and slot in self.games:
-                        try:
-                            peer_action = Action(keycode)
-                            self.games[slot].process_input(peer_action)
-                        except ValueError:
-                            pass
+                        try: self.games[slot].process_input(Action(keycode))
+                        except: pass
                 
-                # 게임 오버 등 추가 패킷 처리 가능
+                elif pkt.cmd == CMD_NOTI_RESULT:
+                    # [WinnerSlot(1B)]
+                    winner_slot = pkt.body[0]
+                    game_finished = True
+                    
+                    # 결과 메시지 미리 결정
+                    if winner_slot == 255:
+                        result_msg = "DRAW"
+                    elif winner_slot == self.my_slot:
+                        result_msg = "WINNER"
+                    else:
+                        result_msg = "LOSER"
+                        
+                    if self.my_slot in self.games:
+                        my_final_score = self.games[self.my_slot].score
+                        
+                    # 모든 게임 멈춤
+                    for g in self.games.values(): g.game_over = True
 
-            # 3. 주기적 업데이트 (중력)
-            if time.time() - last_tick > 0.5:
+            # 4. 업데이트 및 그리기
+            if not game_finished and time.time() - last_tick > 0.5: # 속도 조절
                 for game in self.games.values():
                     game.update()
                 last_tick = time.time()
 
-            # 4. 화면 그리기
-            self.renderer.draw_battle(self.my_slot, self.games)
+            # [FIX] 깜빡임 해결: draw_battle에 오버레이 정보를 인자로 전달
+            self.renderer.draw_battle(
+                self.my_slot, 
+                self.games, 
+                result_msg if game_finished else None, 
+                my_final_score if game_finished else 0
+            )
+            
             time.sleep(0.01)

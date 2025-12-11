@@ -1,9 +1,6 @@
-# src/server/room.py (수정)
-import struct
-import random
+# src/server/room.py
 from src.server.client_peer import ClientPeer
-from src.common.protocol import Packet
-from src.common.constants import *
+from src.server.game_session import GameSession
 from src.common.config import MAX_ROOM_SLOTS
 
 class Room:
@@ -12,26 +9,41 @@ class Room:
         self.title = title
         self.max_slots = MAX_ROOM_SLOTS
         self.slots = [None] * self.max_slots
-        self.is_playing = False
-        
-        # [NEW] 슬롯별 준비 상태 (True/False)
         self.ready_states = [False] * self.max_slots
+        
+        # 게임 세션 객체 (게임 중일 때만 존재)
+        self.game_session = None
+
+    @property
+    def is_playing(self):
+        """현재 게임 진행 중인지 여부"""
+        return self.game_session is not None and self.game_session.is_active
 
     def enter_user(self, client: ClientPeer):
+        """유저 입장"""
         for i in range(self.max_slots):
             if self.slots[i] is None:
                 self.slots[i] = client
-                self.ready_states[i] = False # 입장 시 준비 해제
+                self.ready_states[i] = False
                 return i
         return -1
 
     def leave_user(self, client: ClientPeer):
+        """유저 퇴장"""
+        slot_id = -1
         for i in range(self.max_slots):
             if self.slots[i] == client:
                 self.slots[i] = None
-                self.ready_states[i] = False # 퇴장 시 준비 해제
-                return i
-        return -1
+                self.ready_states[i] = False
+                slot_id = i
+                break
+        
+        if slot_id != -1:
+            # 게임 중에 나갔다면 세션에 알림 (사망 처리)
+            if self.is_playing:
+                self.handle_player_death(slot_id, score=0)
+                
+        return slot_id
 
     def get_users(self):
         return [u for u in self.slots if u is not None]
@@ -44,43 +56,41 @@ class Room:
     def is_empty(self):
         return all(s is None for s in self.slots)
 
-    # --- [NEW] 게임 진행 관련 메서드 추가 ---
-
     def toggle_ready(self, slot_id):
-        """특정 슬롯의 준비 상태를 토글하고 변경된 상태 반환"""
         if 0 <= slot_id < self.max_slots:
             self.ready_states[slot_id] = not self.ready_states[slot_id]
             return self.ready_states[slot_id]
         return False
 
     def can_start_game(self):
-        """
-        게임 시작 조건 검사:
-        1. 혼자가 아니어야 함 (최소 2명)
-        2. 방장(Slot 0)을 제외한 모든 참가자가 Ready 상태여야 함
-        """
-        users = self.get_users()
-        if len(users) < 2: 
-            return False # 혼자서는 시작 불가
+        """게임 시작 조건 검사"""
+        if self.is_playing: return False
         
-        # Slot 1부터 끝까지 확인
+        users = self.get_users()
+        if len(users) < 2: return False # 최소 2명
+        
+        # 방장(0번) 외 모두 Ready 상태여야 함
         for i in range(1, self.max_slots):
-            # 유저가 있는데 Ready가 안 되어 있다면 시작 불가
             if self.slots[i] is not None and not self.ready_states[i]:
                 return False
-        
         return True
 
     def start_game(self):
-        """게임 시작 처리: 시드 생성 및 브로드캐스트"""
-        self.is_playing = True
-        
-        # 1. 랜덤 시드 생성 (4바이트 정수)
-        seed = random.randint(0, 0xFFFFFFFF)
-        
-        # 2. 모든 유저에게 NOTI_GAME_START 전송
-        # 구조: [RandomSeed(4B)]
-        print(f"[Room #{self.room_id}] Game Start! Seed: {seed}")
-        payload = struct.pack('>I', seed)
-        packet = Packet(CMD_NOTI_GAME_START, payload)
-        self.broadcast(packet)
+        """게임 세션 생성 및 시작"""
+        if not self.can_start_game(): return
+
+        # 세션 생성 후 시작
+        self.game_session = GameSession(self)
+        self.game_session.start()
+
+    def handle_player_death(self, slot_id, score):
+        """핸들러에서 오는 사망 요청을 세션으로 위임"""
+        if self.game_session:
+            self.game_session.handle_death(slot_id, score)
+
+    def on_game_end(self):
+        """게임이 끝났을 때 세션에서 호출하는 콜백"""
+        self.game_session = None
+        # 모든 유저 레디 해제
+        for i in range(self.max_slots):
+            self.ready_states[i] = False

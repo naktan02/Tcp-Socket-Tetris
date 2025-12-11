@@ -43,7 +43,10 @@ def handle_join_room(client, packet):
         # 실패 응답 (Result=1)
         client.send_packet(Packet(CMD_RES_JOIN_ROOM, b'\x01\x00'))
         return
-
+    # [Check] 게임 중이면 입장 불가 (혹은 관전)
+    if room.is_playing:
+        client.send_packet(Packet(CMD_RES_JOIN_ROOM, b'\x03\x00')) # Error 3: Playing
+        return
     slot_id = room.enter_user(client)
     if slot_id == -1:
         # 방 꽉 참 (Result=2)
@@ -121,7 +124,8 @@ def handle_search_room(client, packet):
     for room in rooms:
         # 방 ID (2Bytes)
         payload.extend(struct.pack('>H', room.room_id))
-        
+        status = 1 if room.is_playing else 0
+        payload.append(status)
         # 방 제목 (가변 길이)
         title_bytes = room.title.encode('utf-8')
         payload.append(len(title_bytes)) # 제목 길이
