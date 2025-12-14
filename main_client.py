@@ -6,7 +6,7 @@ import traceback  # 자세한 에러 확인을 위해 추가
 # src 모듈 경로 인식
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from src.client.scene_manager import SceneManager
+from src.client.core.scene_manager import SceneManager
 
 def main():
     try:

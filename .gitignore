@@ -1,0 +1,27 @@
+# Python Bytecode (필수)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment (가상환경 폴더)
+venv/
+env/
+.env
+.venv/
+
+# IDE Settings (개인 설정 파일이므로 공유 X)
+.vscode/
+.idea/
+
+# OS Metadata (운영체제 임시 파일)
+.DS_Store
+Thumbs.db
+
+# Logs & Debugging
+*.log
+src/debug/*.log
+
+# Distribution / Packaging (혹시 나중에 패키징한다면)
+dist/
+build/
+*.egg-info/

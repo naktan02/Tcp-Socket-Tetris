@@ -65,26 +65,8 @@ def handle_join_room(client, packet):
     # 구조: [SlotID(1B)] [NickName(Str)]
     noti_body = struct.pack('>B', slot_id) + client.nickname.encode('utf-8')
     room.broadcast(Packet(CMD_NOTI_ENTER_ROOM, noti_body), exclude_client=client)
-    existing_users = room.get_users()
-    for user in existing_users:
-        if user == client: continue # 나는 제외
-        
-        # 유저가 어느 슬롯에 있는지 찾기
-        user_slot = -1
-        for i, s in enumerate(room.slots):
-            if s == user:
-                user_slot = i
-                break
-        
-        if user_slot != -1:
-            # (1) 유저 정보 전송 (마치 지금 들어온 것처럼 NOTI_ENTER를 나에게 보냄)
-            enter_body = struct.pack('>B', user_slot) + user.nickname.encode('utf-8')
-            client.send_packet(Packet(CMD_NOTI_ENTER_ROOM, enter_body))
-            
-            # (2) 그 사람이 Ready 상태라면 Ready 정보도 전송
-            if room.ready_states[user_slot]:
-                ready_body = struct.pack('>B B', user_slot, 1)
-                client.send_packet(Packet(CMD_NOTI_READY_STATE, ready_body))
+
+    # [Refactor] 기존 유저 목록 전송 로직 삭제 (CMD_REQ_ROOM_INFO로 대체)
 
 @router.route(CMD_REQ_LEAVE_ROOM)
 def handle_leave_room(client, packet):
