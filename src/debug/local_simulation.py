@@ -6,8 +6,8 @@ import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from src.core.game_state import GameState
-from src.client.renderer import Renderer
-from src.client.input_handler import InputHandler
+from src.client.core.renderer import Renderer
+from src.client.core.input_handler import InputHandler
 from src.common.constants import Action
 
 def main():

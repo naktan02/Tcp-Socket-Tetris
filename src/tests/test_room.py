@@ -7,7 +7,7 @@ import struct
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from src.common.protocol import Packet
-from src.client.network_client import NetworkClient
+from src.client.network.network_client import NetworkClient
 from src.common.constants import *
 
 def main():

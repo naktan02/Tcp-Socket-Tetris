@@ -1,10 +1,13 @@
 # src/client/scenes/base_scene.py
+from src.client.network.router import route
+
 class BaseScene:
     def __init__(self, manager):
         self.manager = manager
         self.network = manager.network
         self.renderer = manager.renderer
         self.input_handler = manager.input_handler
+        self.context = manager.context
         self._handlers = {}
         self._register_handlers()
 

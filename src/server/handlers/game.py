@@ -1,7 +1,7 @@
 # src/server/handlers/game.py
 import struct
-from src.server.router import router
-from src.server.room_manager import room_manager
+from src.server.infra.router import router
+from src.server.game.room_manager import room_manager
 from src.common.protocol import Packet
 from src.common.constants import *
 

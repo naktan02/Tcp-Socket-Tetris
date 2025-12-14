@@ -6,7 +6,7 @@ import time
 from src.client.scenes.base_scene import BaseScene
 from src.common.protocol import Packet
 from src.common.constants import *
-from src.client.router import route
+from src.client.network.router import route
 
 # Windows msvcrt import
 try:
@@ -105,15 +105,15 @@ class LobbyScene(BaseScene):
     def on_create_room_response(self, pkt):
         res, room_id = struct.unpack('>B H', pkt.body)
         if res == 0:
-            self.manager.room_id = room_id
-            self.manager.my_slot = 0 # 방장은 0번
+            self.context.room_id = room_id
+            self.context.my_slot = 0 # 방장은 0번
             self.manager.change_scene("ROOM")
 
     @route(CMD_RES_JOIN_ROOM)
     def on_join_room_response(self, pkt):
         res, my_slot = struct.unpack('>B B', pkt.body)
         if res == 0:
-            self.manager.my_slot = my_slot
+            self.context.my_slot = my_slot
             # 입장 성공 시 즉시 ROOM_INFO 요청
             self.network.send_packet(Packet(CMD_REQ_ROOM_INFO, b''))
             self.manager.change_scene("ROOM")

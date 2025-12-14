@@ -1,7 +1,6 @@
 # src/client/renderer.py
 import sys
 from src.common.constants import *
-# 새로 만든 모듈들 임포트
 from src.client.ui.console import Console
 from src.client.ui.lobby_view import LobbyView
 from src.client.ui.room_view import RoomView
@@ -16,12 +15,46 @@ class Renderer:
         self.lobby_view = LobbyView()
         self.room_view = RoomView()
         self.game_view = GameView()
+        
+        # [핵심] 이전 프레임 화면 버퍼
+        self.prev_lines = []
 
     def __del__(self):
         Console.cleanup()
 
     def clear_screen(self):
+        """강제 초기화가 필요할 때 사용 (씬 전환 등)"""
         Console.clear()
+        self.prev_lines = []
+
+    def render_diff(self, new_lines):
+        """
+        [Diff Algorithm]
+        이전 프레임(self.prev_lines)과 새 프레임(new_lines)을 비교하여
+        변경된 줄만 커서를 이동해 덮어씁니다.
+        """
+        # 1. 화면 크기가 달라졌거나 첫 렌더링이면 전체 다시 그리기
+        if len(self.prev_lines) != len(new_lines):
+            Console.clear()
+            Console.print_lines(new_lines)
+            self.prev_lines = list(new_lines)
+            return
+
+        # 2. 줄 단위 비교
+        for i, (old_line, new_line) in enumerate(zip(self.prev_lines, new_lines)):
+            if old_line != new_line:
+                # 변경된 줄 위치로 이동 (터미널은 1부터 시작하므로 i+1)
+                Console.move_cursor(1, i + 1)
+                sys.stdout.write(new_line)
+                
+                # 새 줄이 더 짧으면 뒤에 남은 잔상을 지움
+                if len(new_line) < len(old_line):
+                    sys.stdout.write("\033[K") # ANSI: Clear to end of line
+
+        sys.stdout.flush()
+        
+        # 3. 현재 화면을 버퍼에 저장
+        self.prev_lines = list(new_lines)
 
     def move_cursor(self, x, y):
         Console.move_cursor(x, y)
@@ -35,30 +68,27 @@ class Renderer:
     def show_cursor(self):
         Console.show_cursor()
 
-    # --- 각 화면 그리기 요청을 하위 뷰에 위임 ---
+    # --- 각 화면 그리기 (이제 render_diff를 사용합니다) ---
 
     def draw_lobby(self, room_list):
-        Console.clear()
         lines = self.lobby_view.draw(room_list)
-        Console.print_lines(lines)
+        self.render_diff(lines)
 
     def draw_room_wait(self, room_id, slots, ready_states, my_slot):
-        Console.home()
         lines = self.room_view.draw(room_id, slots, ready_states, my_slot)
-        Console.print_lines(lines)
+        self.render_diff(lines)
 
     def draw_battle(self, local_slot_id, games, result_msg=None, final_score=0):
         """
-        게임 화면 그리기
+        게임 화면 그리기 (Diff + Overlay)
         """
-        # 1. 화면 데이터 생성 (GameView 위임)
+        # 1. 기본 게임 화면 라인 생성
         lines = self.game_view.draw(local_slot_id, games)
         
-        # 2. 출력 문자열 조립
-        full_output = "\033[H" 
-        full_output += "\n".join(lines)
-        
-        # 3. 결과 오버레이가 있다면 중앙에 덮어쓰기 (ANSI 코드 활용)
+        # 2. 바탕 화면 Diff 렌더링 (여기서 깜빡임 제거됨)
+        self.render_diff(lines)
+
+        # 3. 결과 오버레이가 있다면 Diff 위에 '강제 덧칠' (Z-index 개념)
         if result_msg:
             overlay_lines = self.game_view.create_result_box(result_msg, final_score)
             
@@ -66,16 +96,12 @@ class Renderer:
             start_y = 9 
             start_x = 30
             
-            overlay_str = ""
             for i, line in enumerate(overlay_lines):
-                # 해당 위치로 커서 이동 후 라인 출력
-                overlay_str += f"\033[{start_y + i};{start_x}H{line}"
+                # 해당 위치로 커서 이동 후 라인 덮어쓰기
+                Console.move_cursor(start_x, start_y + i)
+                sys.stdout.write(line)
             
-            full_output += overlay_str
-            
-        # 4. 최종 출력
-        sys.stdout.write(full_output)
-        sys.stdout.flush()
+            sys.stdout.flush()
 
     def draw_message(self, msg):
         Console.move_cursor(20, 10) # 위치 조정
@@ -83,14 +109,12 @@ class Renderer:
         sys.stdout.flush()
 
     def draw_result_overlay(self, result_msg, score):
-        """게임 결과 화면을 중앙에 덮어씀 (GameView에 생성 위임)"""
+        """게임 결과 화면을 중앙에 덮어씀 (draw_battle 내에서도 처리되지만 호환성 위해 유지)"""
         start_x = 25 # 대략 중앙
         start_y = 8
         
-        # [수정] 박스 내용은 GameView에서 받아옴
         overlay_lines = self.game_view.create_result_box(result_msg, score)
         
-        # 받아온 줄들을 화면 중앙 위치에 출력
         for i, line in enumerate(overlay_lines):
             self.move_cursor(start_x, start_y + i)
             sys.stdout.write(line)

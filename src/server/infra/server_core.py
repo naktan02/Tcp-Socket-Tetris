@@ -6,10 +6,10 @@ import os
 import struct
 # 프로젝트 루트 경로 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
-from src.server.room_manager import room_manager
+from src.server.game.room_manager import room_manager
 from src.common.config import HOST, PORT, BUFFER_SIZE
-from src.server.client_peer import ClientPeer
-from src.server.router import router
+from src.server.infra.client_peer import ClientPeer
+from src.server.infra.router import router
 from src.common.utils import get_local_ip
 from src.common.protocol import Packet
 from src.common.constants import *

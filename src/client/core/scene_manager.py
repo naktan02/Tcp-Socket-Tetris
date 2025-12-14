@@ -1,11 +1,12 @@
 # src/client/core/scene_manager.py
-from src.client.renderer import Renderer
-from src.client.input_handler import InputHandler
-from src.client.network_client import NetworkClient
+from src.client.core.renderer import Renderer
+from src.client.core.input_handler import InputHandler
+from src.client.network.network_client import NetworkClient
 from src.client.scenes.login_scene import LoginScene
 from src.client.scenes.lobby_scene import LobbyScene
 from src.client.scenes.room_scene import RoomScene
 from src.client.scenes.game_scene import GameScene
+from src.client.core.session_context import SessionContext  
 
 class SceneManager:
     def __init__(self):
@@ -14,12 +15,7 @@ class SceneManager:
         self.network = NetworkClient()
         
         self.running = True
-        
-        # 공유 데이터
-        self.my_slot = -1
-        self.room_id = -1
-        self.game_seed = 0
-        self.game_players = []
+        self.context = SessionContext()
 
         # 씬 등록
         self.scenes = {
@@ -39,8 +35,7 @@ class SceneManager:
 
     def run(self):
         while self.running:
-            # 1. 네트워크 패킷 처리 (공통)
-            # 씬 별로 처리하고 싶다면 manager가 loop 돌면서 current_scene 에 넘김
+            # 1. 네트워크 패킷 처리
             while True:
                 pkt = self.network.get_packet()
                 if not pkt: break

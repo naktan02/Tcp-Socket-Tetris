@@ -5,7 +5,7 @@ from src.client.scenes.base_scene import BaseScene
 from src.common.protocol import Packet
 from src.common.constants import *
 from src.common.config import MAX_ROOM_SLOTS
-from src.client.router import route
+from src.client.network.router import route
 
 class RoomScene(BaseScene):
     def __init__(self, manager):
@@ -29,8 +29,8 @@ class RoomScene(BaseScene):
             self.network.send_packet(Packet(CMD_REQ_TOGGLE_READY, b''))
         elif action == Action.QUIT: # Q -> Leave
             self.network.send_packet(Packet(CMD_REQ_LEAVE_ROOM, b''))
-            self.manager.room_id = -1
-            self.manager.my_slot = -1
+            self.context.room_id = -1
+            self.context.my_slot = -1
             self.manager.change_scene("LOBBY")
             # 로비 목록 갱신 요청
             self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
@@ -64,10 +64,10 @@ class RoomScene(BaseScene):
         seed = struct.unpack('>I', pkt.body)[0]
         players = [i for i, u in enumerate(self.room_slots) if u is not None]
         
-        self.manager.game_seed = seed
-        self.manager.game_players = players
+        self.context.game_seed = seed
+        self.context.game_players = players
         self.manager.change_scene("GAME")
 
     def _draw(self):
         # 매니저에 저장된 내 슬롯 번호 사용
-        self.renderer.draw_room_wait(self.manager.room_id, self.room_slots, self.room_ready, self.manager.my_slot)
+        self.renderer.draw_room_wait(self.context.room_id, self.room_slots, self.room_ready, self.context.my_slot)

@@ -1,6 +1,6 @@
 # src/server/room.py
-from src.server.client_peer import ClientPeer
-from src.server.game_session import GameSession
+from src.server.infra.client_peer import ClientPeer
+from src.server.game.game_session import GameSession
 from src.common.config import MAX_ROOM_SLOTS
 
 class Room:

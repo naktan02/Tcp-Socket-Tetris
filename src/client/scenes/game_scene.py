@@ -6,7 +6,7 @@ from src.client.scenes.base_scene import BaseScene
 from src.common.protocol import Packet
 from src.common.constants import *
 from src.core.game_state import GameState
-from src.client.router import route
+from src.client.network.router import route
 
 class GameScene(BaseScene):
     def __init__(self, manager):
@@ -21,8 +21,8 @@ class GameScene(BaseScene):
     def on_enter(self):
         # 데이터 초기화
         self.games = {}
-        seed = self.manager.game_seed
-        players = self.manager.game_players
+        seed = self.context.game_seed
+        players = self.context.game_players
         
         # State 생성
         for slot in players:
@@ -46,18 +46,18 @@ class GameScene(BaseScene):
             else:
                 if action == Action.QUIT: # 게임 중 강제 종료
                     self.network.send_packet(Packet(CMD_REQ_LEAVE_ROOM, b''))
-                    self.manager.room_id = -1
+                    self.context.room_id = -1
                     self.manager.change_scene("LOBBY")
                     self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
                     return
                 
-                if self.manager.my_slot in self.games:
-                    self.games[self.manager.my_slot].process_input(action)
+                if self.context.my_slot in self.games:
+                    self.games[self.context.my_slot].process_input(action)
                     self.network.send_packet(Packet(CMD_REQ_MOVE, bytes([action.value])))
 
         # 2. 게임 상태 체크
         if not self.game_finished and not self.sent_gameover:
-            my_game = self.games.get(self.manager.my_slot)
+            my_game = self.games.get(self.context.my_slot)
             if my_game and my_game.game_over:
                 score = my_game.score
                 payload = struct.pack('>I', score)
@@ -75,7 +75,7 @@ class GameScene(BaseScene):
 
     def _draw(self):
         self.renderer.draw_battle(
-            self.manager.my_slot, 
+            self.context.my_slot, 
             self.games, 
             self.result_msg if self.game_finished else None, 
             self.my_final_score if self.game_finished else 0
@@ -85,7 +85,7 @@ class GameScene(BaseScene):
     def on_peer_move(self, pkt):
         slot, keycode = struct.unpack('>B B', pkt.body)
         # 내 슬롯이 아니고, 해당 슬롯에 게임 상태가 존재할 때만 처리
-        if slot != self.manager.my_slot and slot in self.games:
+        if slot != self.context.my_slot and slot in self.games:
             try:
                 self.games[slot].process_input(Action(keycode))
             except:
@@ -98,13 +98,13 @@ class GameScene(BaseScene):
         
         if winner_slot == 255:
             self.result_msg = "DRAW"
-        elif winner_slot == self.manager.my_slot:
+        elif winner_slot == self.context.my_slot:
             self.result_msg = "WINNER"
         else:
             self.result_msg = "LOSER"
             
-        if self.manager.my_slot in self.games:
-            self.my_final_score = self.games[self.manager.my_slot].score
+        if self.context.my_slot in self.games:
+            self.my_final_score = self.games[self.context.my_slot].score
             
         for g in self.games.values():
             g.game_over = True

@@ -5,7 +5,7 @@ import os
 # 프로젝트 루트 경로를 sys.path에 추가 (src 패키지 인식용)
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from src.server.server_core import TetrisServer
+from src.server.infra.server_core import TetrisServer
 
 def main():
     try:

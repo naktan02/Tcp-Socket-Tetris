@@ -1,5 +1,5 @@
 # src/server/handlers/connection.py
-from src.server.router import router
+from src.server.infra.router import router
 from src.common.constants import CMD_REQ_LOGIN, CMD_RES_LOGIN
 from src.common.protocol import Packet
 
