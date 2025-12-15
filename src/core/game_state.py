@@ -14,7 +14,9 @@ class GameState:
     def process_input(self, action):
         """유저 입력을 처리하고 상태 업데이트"""
         if self.game_over:
-            return
+            return 0
+
+        lines_cleared = 0
 
         if action == Action.MOVE_LEFT:
             if self.board.is_valid_position(self.current_piece, adj_x=-1):
@@ -38,19 +40,25 @@ class GameState:
             # 바닥에 닿을 때까지 내림
             while self.board.is_valid_position(self.current_piece, adj_y=1):
                 self.current_piece.y += 1
-            self.lock_piece()
+            lines_cleared = self.lock_piece()
+
+        return lines_cleared
 
     def update(self):
         """일정 시간마다 호출되는 게임 루프 (중력 작용)"""
         if self.game_over:
-            return
+            return 0
+
+        lines_cleared = 0
 
         # 한 칸 아래로 이동 시도
         if self.board.is_valid_position(self.current_piece, adj_y=1):
             self.current_piece.y += 1
         else:
             # 더 이상 못 내려가면 고정
-            self.lock_piece()
+            lines_cleared = self.lock_piece()
+        
+        return lines_cleared
 
     def lock_piece(self):
         """블록을 보드에 고정하고 새 블록 생성"""
@@ -65,3 +73,5 @@ class GameState:
         # 새 블록을 놓을 자리가 없으면 게임 오버
         if not self.board.is_valid_position(self.current_piece):
             self.game_over = True
+        
+        return lines

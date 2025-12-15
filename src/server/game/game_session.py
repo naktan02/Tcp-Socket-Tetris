@@ -3,6 +3,7 @@ import random
 import struct
 from src.common.protocol import Packet
 from src.common.constants import *
+from src.common.utils import setup_file_logger
 
 class GameSession:
     def __init__(self, room):
@@ -10,7 +11,7 @@ class GameSession:
         self.alive_slots = set()
         self.final_scores = {}
         self.is_active = True
-        
+        self.logger = setup_file_logger(f"Server_Session_{self.room.room_id}")
         # 게임 시작 시 현재 방에 있는 유저들로 생존자 목록 초기화
         for i, user in enumerate(self.room.slots):
             if user:
@@ -33,7 +34,7 @@ class GameSession:
             self.alive_slots.remove(slot_id)
             self.final_scores[slot_id] = score
             
-            print(f"[Room #{self.room.room_id}] Slot {slot_id} Died. Score: {score}. Survivors: {self.alive_slots}")
+            self.logger.info(f"[Room #{self.room.room_id}] Slot {slot_id} Died. Score: {score}. Survivors: {self.alive_slots}")
             
             # 현재 접속 중인 유저 수 (나간 유저 제외)
             active_users = [u for u in self.room.slots if u is not None]
@@ -46,7 +47,7 @@ class GameSession:
             if len(self.alive_slots) == 0:
                 should_end = True
                 winner_slot = self._get_highest_score_slot()
-                print(f"[Room #{self.room.room_id}] All players dead. Winner: {winner_slot}")
+                self.logger.info(f"[Room #{self.room.room_id}] All players dead. Winner: {winner_slot}")
             # 접속자가 1명뿐이고, 그 사람이 아직 살아있다면 -> 즉시 승리 (기권승)
             elif active_users_count == 1:
                 last_user = active_users[0]
@@ -59,7 +60,7 @@ class GameSession:
                         winner_slot = last_user_slot
                         # [Modified] 승리 사유 추가 (1=기권승/Walkover)
                         self.finish_game(winner_slot, reason=1)
-                        print(f"[Room #{self.room.room_id}] Auto-Win: Slot {winner_slot} is the last survivor.")
+                        self.logger.info(f"[Room #{self.room.room_id}] Auto-Win: Slot {winner_slot} is the last survivor.")
                         return # finish_game에서 처리하므로 여기서 리턴
                 except ValueError:
                     pass # 혹시 모를 에러 방지       
@@ -92,7 +93,7 @@ class GameSession:
         if not self.is_active: return
         self.is_active = False
         
-        print(f"[Room #{self.room.room_id}] Game Finished. Winner: Slot {winner_slot}, Reason: {reason}")
+        self.logger.info(f"[Room #{self.room.room_id}] Game Finished. Winner: Slot {winner_slot}, Reason: {reason}")
         
         # 결과 전송: [WinnerSlot(1B)] [Reason(1B)]
         # (WinnerSlot: 255 = 무승부/없음)
@@ -102,3 +103,48 @@ class GameSession:
         
         # Room에 게임 종료 알림 (상태 정리)
         self.room.on_game_end()
+
+    def handle_attack(self, attacker_slot, lines):
+        """
+        공격 요청 처리: 공격자 -> 타겟(오른쪽 생존자)에게 방해 줄 전송
+        """
+        if not self.is_active: return
+
+        # 1. 타겟 선정 (나를 제외한 생존자 중 오른쪽)
+        target_slot = self.get_next_alive_target(attacker_slot)
+        
+        if target_slot is None:
+            self.logger.info(f"[Attack] Slot {attacker_slot} attacked, but no target found.")
+            return
+
+        self.logger.info(f"[Attack] Slot {attacker_slot} -> Slot {target_slot} ({lines} lines)")
+
+        # 2. 타겟에게 공격 패킷 전송
+        # 패킷 구조: [AttackerSlot(1B)] [TargetSlot(1B)] [Lines(1B)]
+        payload = struct.pack('>B B B', attacker_slot, target_slot, lines)
+        self.room.broadcast(Packet(CMD_NOTI_GARBAGE, payload))
+        
+
+    def get_next_alive_target(self, attacker_slot):
+        """
+        공격자 기준으로 시계 방향(Slot ID 증가)으로 가장 가까운 생존자 반환
+        """
+        sorted_slots = sorted(list(self.alive_slots))
+        
+        # 생존자가 나 혼자거나 없으면 타겟 없음
+        if len(sorted_slots) < 2:
+            return None
+            
+        try:
+            current_idx = sorted_slots.index(attacker_slot)
+        except ValueError:
+            return None # 공격자가 이미 죽은 상태라면 무시
+
+        # 다음 사람 인덱스 (Circular)
+        next_idx = (current_idx + 1) % len(sorted_slots)
+        
+        # 혹시라도 나 자신을 가리키게 되면(생존자 1명) None
+        if sorted_slots[next_idx] == attacker_slot:
+            return None
+            
+        return sorted_slots[next_idx]

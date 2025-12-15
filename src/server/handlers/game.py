@@ -4,6 +4,9 @@ from src.server.infra.router import router
 from src.server.game.room_manager import room_manager
 from src.common.protocol import Packet
 from src.common.constants import *
+from src.common.utils import setup_file_logger
+
+logger = setup_file_logger("Server_GameHandler")
 
 @router.route(CMD_REQ_TOGGLE_READY)
 def handle_toggle_ready(client, packet):
@@ -25,16 +28,17 @@ def handle_toggle_ready(client, packet):
 
     if my_slot == 0:
         if room.can_start_game():
+            logger.info(f"[Room #{room.room_id}] Host requested Game Start.")
             room.start_game()
         else:
             # (선택) 시작 불가능하면 로그 출력 or 에러 패킷 전송
-            print(f"[Room #{room.room_id}] Host tried to start, but guests are not ready.")
+            logger.warning(f"[Room #{room.room_id}] Host tried to start, but conditions not met.")
     
     # [수정] 일반 유저인 경우 -> Ready 토글
     else:
         is_ready = room.toggle_ready(my_slot)
         state_val = 1 if is_ready else 0
-        
+        logger.info(f"[Room #{room.room_id}] Slot {my_slot} Ready: {is_ready}")
         # 변경 사실 알림 (NOTI_READY_STATE)
         noti_payload = struct.pack('>B B', my_slot, state_val)
         room.broadcast(Packet(CMD_NOTI_READY_STATE, noti_payload))
@@ -91,4 +95,27 @@ def handle_gameover(client, packet):
     
     if my_slot != -1:
         # 방 로직에 위임 (생존자 체크 및 게임 종료 판단)
+        logger.info(f"[Room #{room.room_id}] Slot {my_slot} requested GAMEOVER (Score: {score})")
         room.handle_player_death(my_slot, score)
+
+@router.route(CMD_REQ_ATTACK)
+def handle_attack(client, packet):
+    """공격 요청: [Lines(1B)]"""
+    if not hasattr(client, 'room_id') or client.room_id is None: return
+    room = room_manager.get_room(client.room_id)
+    if not room or not room.is_playing: return
+
+    if len(packet.body) < 1: return
+    lines = packet.body[0]
+
+    my_slot = -1
+    for i, user in enumerate(room.slots):
+        if user == client:
+            my_slot = i
+            break
+    
+    if my_slot != -1:
+        logger.info(f"[Room #{room.room_id}] Slot {my_slot} ATTACK request: {lines} lines")
+        # GameSession으로 전달 (아직 room.game_session에 handle_attack이 없으므로 주석 처리하거나 2단계에서 구현)
+        if room.game_session:
+             room.game_session.handle_attack(my_slot, lines)

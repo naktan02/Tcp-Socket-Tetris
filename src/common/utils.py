@@ -31,3 +31,20 @@ def setup_logger(name):
         handler.setFormatter(formatter)
         logger.addHandler(handler)
     return logger
+
+
+def setup_file_logger(name):
+    """
+    [NEW] 파일 로깅을 위한 헬퍼 함수.
+    게임 화면(UI)을 방해하지 않고 'game_debug.log' 파일에 로그를 기록합니다.
+    """
+    logger = logging.getLogger(name)
+    # 핸들러가 이미 있다면 추가하지 않음 (중복 방지)
+    if not logger.handlers:
+        logger.setLevel(logging.DEBUG)
+        # 파일 핸들러 생성 (append 모드)
+        fh = logging.FileHandler('game_debug.log', encoding='utf-8')
+        formatter = logging.Formatter('[%(asctime)s] [%(name)s] %(message)s')
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+    return logger
