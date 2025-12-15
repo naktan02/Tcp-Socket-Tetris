@@ -24,7 +24,8 @@ class InputHandler:
             b'H': Action.ROTATE,     # Up Arrow    -> 회전
             b'K': Action.MOVE_LEFT,  # Left Arrow  -> 왼쪽 이동
             b'M': Action.MOVE_RIGHT, # Right Arrow -> 오른쪽 이동
-            b'P': Action.DOWN        # Down Arrow  -> 아래로 이동 (소프트 드롭)
+            b'P': Action.DOWN,       # Down Arrow  -> 아래로 이동 (소프트 드롭)
+            b'v': Action.USE_ITEM    # X: 아이템 사용
         }
 
     def get_action(self):

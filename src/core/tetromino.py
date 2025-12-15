@@ -47,6 +47,9 @@ class Tetromino:
             [(1, 0), (1, 1), (1, 2), (2, 2)],
             [(0, 1), (1, 1), (2, 1), (0, 2)],
             [(0, 0), (1, 0), (1, 1), (1, 2)]
+        ],
+        'WEIGHT': [
+            [(1, 2), (2, 2), (0, 3), (1, 3), (2, 3), (3, 3)] 
         ]
     }
     
@@ -60,7 +63,11 @@ class Tetromino:
         
         # O형은 회전이 없음
         self.max_rotation = len(self.SHAPES[shape_type])
-        self.color_id = self.TYPES.index(shape_type) + 1
+        if shape_type in self.TYPES:
+            self.color_id = self.TYPES.index(shape_type) + 1
+        else:
+            self.color_id = 8 
+        self.is_heavy = False
 
     @classmethod
     def create_random(cls):
@@ -85,4 +92,15 @@ class Tetromino:
         new_piece.x = self.x
         new_piece.y = self.y
         new_piece.color_id = self.color_id
+        new_piece.is_heavy = self.is_heavy
         return new_piece
+
+    def make_heavy(self):
+        """블록을 무게추 모드로 변경 (모양 변경 포함)"""
+        self.is_heavy = True
+        self.type = 'WEIGHT'     # [수정] 모양을 무게추 모양으로 변경
+        self.rotation = 0        # 회전 초기화 (무게추는 회전 안 함)
+        self.max_rotation = 1    # 회전 불가 설정
+        self.color_id = 8        # 색상: 흰색/회색
+        if self.x > 6: 
+            self.x = 6

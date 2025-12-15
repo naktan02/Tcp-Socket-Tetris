@@ -42,6 +42,7 @@ class Action(Enum):
     DOWN       = 4 # 소프트 드롭
     DROP       = 5 # 하드 드롭
     HOLD       = 6
+    USE_ITEM   = 7
     QUIT       = 99
 
 # --- ANSI Colors (화면 출력용) ---

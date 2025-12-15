@@ -118,7 +118,7 @@ class SidebarRenderer:
         lines.append(" " * self.WIDTH)
         
         # 2. Attack 게이지 상자
-        lines.extend(self.render_attack_gauge(game_state))
+        lines.extend(self.render_inventory(game_state))
         
         # 남은 공간 공백 채우기 (전체 높이 23줄 맞춤)
         while len(lines) < 23:
@@ -152,27 +152,70 @@ class SidebarRenderer:
         lines.append(f"{self.CORNER_BL}{self.BORDER_H * self.INNER_WIDTH}{self.CORNER_BR}")
         return lines
 
-    def render_attack_gauge(self, game_state):
-        """공격(Garbage) 게이지 생성 (텍스트 제거됨)"""
+    # def render_inventory(self, game_state):
+    #     """공격(Garbage) 게이지 생성 (텍스트 제거됨)"""
+    #     lines = []
+    #     # 상단 테두리
+    #     lines.append(f"{self.CORNER_TL}{self.BORDER_H * self.INNER_WIDTH}{self.CORNER_TR}")
+        
+    #     pending = getattr(game_state, 'pending_garbage', 0)
+    #     gauge_h = 10
+        
+    #     # 게이지 바 채우기 (아래에서 위로)
+    #     for i in range(gauge_h):
+    #         level = gauge_h - 1 - i
+    #         if level < pending:
+    #             fill = f"{COLOR_RED}{self.BLOCK_CHAR * 3}{COLOR_RESET}"
+    #         else:
+    #             fill = " " * 6
+    #         # 게이지 바 폭 6칸, 좌우 여백 2칸씩
+    #         lines.append(f"{self.BORDER_V}  {fill}  {self.BORDER_V}")
+            
+    #     # 하단 테두리
+    #     lines.append(f"{self.CORNER_BL}{self.BORDER_H * self.INNER_WIDTH}{self.CORNER_BR}")
+    #     return lines
+
+    def render_inventory(self, game_state):
+        """[수정] 아이템 인벤토리 렌더링 (아래에서 위로 쌓임)"""
         lines = []
-        # 상단 테두리
         lines.append(f"{self.CORNER_TL}{self.BORDER_H * self.INNER_WIDTH}{self.CORNER_TR}")
         
-        pending = getattr(game_state, 'pending_garbage', 0)
-        gauge_h = 10
+        # 보유 아이템 수 가져오기
+        count = getattr(game_state, 'item_count', 0)
         
-        # 게이지 바 채우기 (아래에서 위로)
-        for i in range(gauge_h):
-            level = gauge_h - 1 - i
-            if level < pending:
-                fill = f"{COLOR_RED}{self.BLOCK_CHAR * 3}{COLOR_RESET}"
-            else:
-                fill = " " * 6
-            # 게이지 바 폭 6칸, 좌우 여백 2칸씩
-            lines.append(f"{self.BORDER_V}  {fill}  {self.BORDER_V}")
+        # 총 3개의 슬롯 공간 (각 슬롯 높이 2칸 + 여백)
+        # 위에서부터 그림 (Slot 3 -> Slot 2 -> Slot 1)
+        for i in range(3):
+            slot_num = 3 - i # 3, 2, 1 순서
             
-        # 하단 테두리
+            # 아이템이 있으면 그림
+            if slot_num <= count:
+                # 무게추 아이콘 (빨간색)
+                # Row 1: "  [][]  " (가운데 2칸) - 공백2, 블록2, 공백2 (총 8자) -> 사이드바 내부 10자니까 좌우 1공백
+                # Row 2: "[][][][]" (꽉 찬 4칸)
+                c = COLOR_RED
+                row1 = f"  {c}{self.BLOCK_CHAR * 2}{COLOR_RESET}  " # 2+4+2 = 8 char
+                row2 = f"{c}{self.BLOCK_CHAR * 4}{COLOR_RESET}"     # 8 char
+                
+                lines.append(f"{self.BORDER_V} {row1} {self.BORDER_V}")
+                lines.append(f"{self.BORDER_V} {row2} {self.BORDER_V}")
+            else:
+                # 빈 슬롯
+                lines.append(f"{self.BORDER_V}{' ' * 10}{self.BORDER_V}")
+                lines.append(f"{self.BORDER_V}{' ' * 10}{self.BORDER_V}")
+            
+            # 슬롯 구분선 (마지막 제외)
+            if i < 2:
+                 lines.append(f"{self.BORDER_V}{'-' * 10}{self.BORDER_V}")
+
         lines.append(f"{self.CORNER_BL}{self.BORDER_H * self.INNER_WIDTH}{self.CORNER_BR}")
+        
+        # 현재 진행 상황 표시 (옵션)
+        prog = getattr(game_state, 'item_progress', 0)
+        targ = getattr(game_state, 'item_target', 4)
+        status = f"Item: {prog}/{targ}"
+        lines.append(f" {status.center(10)} ")
+        
         return lines
 
 

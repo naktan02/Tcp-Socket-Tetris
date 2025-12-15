@@ -54,3 +54,32 @@ class Board:
             row = [8] * self.WIDTH
             row[random.randint(0, self.WIDTH-1)] = 0 # 구멍 하나 뚫기
             self.grid.append(row)
+
+    def drill_path(self, tetromino):
+        """[추가] 블록 아래의 모든 장애물 제거 (무게추 효과)"""
+        for x, y in tetromino.get_blocks():
+            # 현재 블록 위치보다 아래(y+1)부터 바닥까지 0으로 만듦
+            for dy in range(y + 1, self.HEIGHT):
+                if 0 <= x < self.WIDTH:
+                    self.grid[dy][x] = 0
+    
+    def is_in_bounds(self, tetromino, adj_x=0, adj_y=0):
+        """블록이 보드 경계(벽, 바닥) 안에 있는지 확인"""
+        for lx, ly in tetromino.SHAPES[tetromino.type][tetromino.rotation % tetromino.max_rotation]:
+            target_x = tetromino.x + lx + adj_x
+            target_y = tetromino.y + ly + adj_y
+            
+            # 보드 밖으로 나가면 False
+            if not (0 <= target_x < self.WIDTH and 0 <= target_y < self.HEIGHT):
+                return False
+        return True
+
+    def drill_position(self, tetromino, adj_x=0, adj_y=0):
+        """블록이 위치할 좌표의 기존 블록들을 제거"""
+        for lx, ly in tetromino.SHAPES[tetromino.type][tetromino.rotation % tetromino.max_rotation]:
+            target_x = tetromino.x + lx + adj_x
+            target_y = tetromino.y + ly + adj_y
+            
+            # 범위 안이라면 해당 칸을 0(빈 공간)으로 만듦
+            if 0 <= target_x < self.WIDTH and 0 <= target_y < self.HEIGHT:
+                self.grid[target_y][target_x] = 0
