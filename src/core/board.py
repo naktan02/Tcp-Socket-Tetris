@@ -44,6 +44,8 @@ class Board:
     def add_garbage_lines(self, count):
         """방해 줄(Garbage) 추가 (아래에서 솟아오름)"""
         # 위쪽 줄 삭제 (게임 오버 유발 가능)
+        if count >= self.HEIGHT:
+            count = self.HEIGHT
         self.grid = self.grid[count:]
         
         # 아래쪽에 회색 줄(8) 추가 (한 칸은 비워둠)

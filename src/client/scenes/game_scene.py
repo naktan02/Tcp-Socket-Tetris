@@ -40,7 +40,7 @@ class GameScene(BaseScene):
         self.game_finished = False
         self.result_msg = ""
         self.renderer.clear_screen()
-
+        self.my_final_score = 0
         self.pending_garbage = {slot: [] for slot in players}
         self.accumulated_lines = 0
         self.last_clear_time = 0
@@ -176,8 +176,15 @@ class GameScene(BaseScene):
     def on_garbage(self, pkt):
         """서버로부터 공격 알림 받음 (Broadcast)"""
         # [수정] 3바이트 파싱 (Attacker, Target, Lines)
+        if len(pkt.body) < 3: 
+            self.logger.error("Invalid garbage packet")
+            return
+        if self.game_finished:
+            return
+
         attacker_slot, target_slot, lines = struct.unpack('>B B B', pkt.body)
-        
+        if target_slot not in self.pending_garbage:
+            return
         self.logger.info(f"[Net] Attack: {attacker_slot} -> {target_slot} ({lines} lines)")
 
         # 1. 내가 타겟인 경우: 방어(Counter) 로직 수행
