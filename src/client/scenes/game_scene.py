@@ -93,15 +93,24 @@ class GameScene(BaseScene):
     
     @route(CMD_NOTI_RESULT)
     def on_game_result(self, pkt):
+        # [Modified] 승리 사유 추가 (1B)
+        # 구조: [WinnerSlot(1B)] [Reason(1B)] (Reason은 선택적일 수 있음 - 하위호환)
         winner_slot = pkt.body[0]
+        reason = 0
+        if len(pkt.body) >= 2:
+            reason = pkt.body[1]
+            
         self.game_finished = True
         
         if winner_slot == 255:
             self.result_msg = "DRAW"
         elif winner_slot == self.context.my_slot:
-            self.result_msg = "WINNER"
+            if reason == 1:
+                self.result_msg = "YOU WIN! (BY WALKOVER)"
+            else:
+                self.result_msg = "YOU WIN!"
         else:
-            self.result_msg = "LOSER"
+            self.result_msg = f"WINNER: P{winner_slot + 1}"
             
         if self.context.my_slot in self.games:
             self.my_final_score = self.games[self.context.my_slot].score

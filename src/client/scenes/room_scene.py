@@ -16,7 +16,10 @@ class RoomScene(BaseScene):
         self.room_ready = [False] * MAX_ROOM_SLOTS
 
     def on_enter(self):
-        # [핵심] 들어올 때마다 최신 정보 요청
+        # [핵심] 들어올 때마다 최신 정보 요청하기 전에 기존 데이터 초기화 (Stale Data 방지)
+        self.room_slots = [None] * MAX_ROOM_SLOTS
+        self.room_ready = [False] * MAX_ROOM_SLOTS
+
         self.network.send_packet(Packet(CMD_REQ_ROOM_INFO, b''))
         
         # 화면 초기화

@@ -1,4 +1,7 @@
 # src/server/room.py
+import struct
+from src.common.protocol import Packet
+from src.common.constants import CMD_NOTI_LEAVE_ROOM, CMD_NOTI_ENTER_ROOM
 from src.server.infra.client_peer import ClientPeer
 from src.server.game.game_session import GameSession
 from src.common.config import MAX_ROOM_SLOTS
@@ -29,21 +32,62 @@ class Room:
         return -1
 
     def leave_user(self, client: ClientPeer):
-        """유저 퇴장"""
+        """유저 퇴장 처리 및 방장 이양 로직"""
         slot_id = -1
+        
+        # 1. 나가는 유저 슬롯 찾기
         for i in range(self.max_slots):
             if self.slots[i] == client:
-                self.slots[i] = None
-                self.ready_states[i] = False
                 slot_id = i
                 break
         
         if slot_id != -1:
-            # 게임 중에 나갔다면 세션에 알림 (사망 처리)
+            self.slots[slot_id] = None
+            self.ready_states[slot_id] = False
+
             if self.is_playing:
                 self.handle_player_death(slot_id, score=0)
-                
+            
+            # 방장(0번)이 나갔을 때 방장 이양 (Host Migration)
+            if slot_id == 0:
+                if self.is_playing:
+                    # 게임 중이면 즉시 이양하지 않고, 게임 끝난 후 처리 (return slot_id -> Handler에서 LEAVE 전송)
+                    return slot_id
+                else:
+                    # 대기 중이면 즉시 이양
+                    # 우선 방장이 나갔음을 모두에게 알림
+                    leave_pkt = Packet(CMD_NOTI_LEAVE_ROOM, struct.pack('>B', 0))
+                    self.broadcast(leave_pkt)
+
+                    self._attempt_host_migration()
+
+                    return -1
+
         return slot_id
+
+    def _attempt_host_migration(self):
+        """방장 이양 로직 (0번 슬롯이 비었을 때 호출)"""
+        new_host_idx = -1
+        for i in range(1, self.max_slots):
+            if self.slots[i] is not None:
+                new_host_idx = i
+                break
+        
+        if new_host_idx != -1:
+            new_host_client = self.slots[new_host_idx]
+            self.slots[0] = new_host_client
+            self.slots[new_host_idx] = None
+            self.ready_states[0] = False
+            
+            self.broadcast(Packet(CMD_NOTI_LEAVE_ROOM, struct.pack('>B', new_host_idx)))
+            
+            nick_bytes = new_host_client.nickname.encode('utf-8')
+            enter_body = struct.pack('>B', 0) + nick_bytes
+            self.broadcast(Packet(CMD_NOTI_ENTER_ROOM, enter_body))
+            
+            print(f"[Room #{self.room_id}] Host migrated to {new_host_client.nickname}")
+
+
 
     def get_users(self):
         return [u for u in self.slots if u is not None]
@@ -92,5 +136,10 @@ class Room:
         """게임이 끝났을 때 세션에서 호출하는 콜백"""
         self.game_session = None
         # 모든 유저 레디 해제
+        # 모든 유저 레디 해제
         for i in range(self.max_slots):
             self.ready_states[i] = False
+            
+        # 게임 도중 방장이 나가서 0번이 비어있다면, 이제 이양 시도
+        if self.slots[0] is None:
+            self._attempt_host_migration()

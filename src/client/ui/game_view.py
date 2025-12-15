@@ -223,8 +223,13 @@ class GameView:
         lines = []
         box_w = 26
         
-        color = COLOR_GREEN if result_msg == "WINNER" else COLOR_RED
-        if result_msg == "DRAW": color = COLOR_YELLOW
+        if "WIN" in result_msg and "P" not in result_msg: # "YOU WIN!"인 경우
+            color = COLOR_GREEN
+        elif "DRAW" in result_msg:
+            color = COLOR_YELLOW
+        else:
+            # "WINNER: P2" 처럼 내가 아닌 다른 사람의 승리인 경우 빨간색
+            color = COLOR_RED
         
         lines.append(f"┌{'─'*box_w}┐")
         lines.append(f"│{' '*box_w}│")
