@@ -60,6 +60,8 @@ class GameState:
 
     def update(self):
         """일정 시간마다 호출되는 게임 루프 (중력 작용)"""
+        if self.game_over:
+            return 0
         return self._move_down()
 
     def _move_down(self):
