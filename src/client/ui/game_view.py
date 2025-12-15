@@ -5,6 +5,7 @@ class BoardRenderer:
     def __init__(self):
         self.BLOCK_CHAR = "[]"
         self.EMPTY_CHAR = "  "
+
         self.BORDER_V = "│"
         self.BORDER_H = "─"
         self.CORNER_TL = "┌"
@@ -54,28 +55,34 @@ class BoardRenderer:
             # 보드 데이터 복사 및 현재 블록 덮어쓰기
             display = [row[:] for row in game_state.board.grid]
             piece = game_state.current_piece
+
+            if is_mine:
+                ghost = game_state.get_ghost_piece()
+                if ghost:
+                    for x, y in ghost.get_blocks():
+                        if 0 <= y < self.HEIGHT and 0 <= x < self.WIDTH:
+                            # 이미 블록이 있는 자리(1, 8)가 아닐 때만 고스트 표시
+                            if display[y][x] == 0:
+                                display[y][x] = 9
             if piece:
                 for x, y in piece.get_blocks():
                     if 0 <= y < self.HEIGHT and 0 <= x < self.WIDTH:
-                        display[y][x] = 2 # 2는 현재 조작 중인 블록
+                        display[y][x] = piece.color_id # 2는 현재 조작 중인 블록
 
             # 그리드 렌더링
             for y in range(self.HEIGHT):
                 line = self.BORDER_V
                 for x in range(self.WIDTH):
                     val = display[y][x]
-                    if val == 0:
+                    if val == 0: # 빈 공간
                         line += self.EMPTY_CHAR
-                    elif val == 1:
-                        # 맵에 놓인 블럭: 파란색
-                        line += f"{COLOR_BLUE}{self.BLOCK_CHAR}{COLOR_RESET}"
-                    elif val == 2:
-                        # 현재 조작 블럭: 노란색(나) / 흰색(적)
-                        c = COLOR_YELLOW if is_mine else COLOR_WHITE
-                        line += f"{c}{self.BLOCK_CHAR}{COLOR_RESET}"
-                    elif val == 8:
-                        # 방해 줄
-                        line += f"{COLOR_WHITE}XX{COLOR_RESET}"
+                    elif val == 9: # 고스트
+                        line += f"{COLOR_GRAY}{self.BLOCK_CHAR}{COLOR_RESET}"
+                    elif val in BLOCK_COLOR_MAP: # 1~8 (블록 및 방해 줄)
+                        color = BLOCK_COLOR_MAP[val]
+                        line += f"{color}{self.BLOCK_CHAR}{COLOR_RESET}"
+                    else: # 예외 처리 (기본 흰색)
+                        line += f"{COLOR_WHITE}{self.BLOCK_CHAR}{COLOR_RESET}"
                 line += self.BORDER_V
                 lines.append(line)
             
@@ -129,12 +136,11 @@ class SidebarRenderer:
         next_piece = game_state.next_piece
         preview = [['  '] * 4 for _ in range(4)]
         if next_piece:
-            # 초기 회전 상태(0)의 모양 가져오기
             shape = next_piece.SHAPES[next_piece.type][0]
+            color = BLOCK_COLOR_MAP.get(next_piece.color_id, COLOR_WHITE)
             for x, y in shape:
                 if 0 <= y < 4 and 0 <= x < 4:
-                    # 다음 블록: 보라색 (구분감)
-                    preview[y][x] = f"{COLOR_MAGENTA}{self.BLOCK_CHAR}{COLOR_RESET}"
+                    preview[y][x] = f"{color}{self.BLOCK_CHAR}{COLOR_RESET}"
         
         # 4줄 출력
         for row in preview:
@@ -211,9 +217,9 @@ class GameView:
             line_str = ""
             for p_render in player_renders:
                 if y < len(p_render):
-                    line_str += p_render[y] + "    " # 플레이어 사이 간격
+                    line_str += p_render[y] + "  " # 플레이어 사이 간격
                 else:
-                    line_str += " " * 34 # 빈 공간 채움
+                    line_str += " " * 32 # 빈 공간 채움
             output.append(line_str)
             
         return output

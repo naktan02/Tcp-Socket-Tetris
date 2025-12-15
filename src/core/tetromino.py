@@ -50,7 +50,7 @@ class Tetromino:
         ]
     }
     
-    TYPES = list(SHAPES.keys())
+    TYPES = ['I', 'O', 'T', 'S', 'Z', 'J', 'L']
 
     def __init__(self, shape_type):
         self.type = shape_type
@@ -60,6 +60,7 @@ class Tetromino:
         
         # O형은 회전이 없음
         self.max_rotation = len(self.SHAPES[shape_type])
+        self.color_id = self.TYPES.index(shape_type) + 1
 
     @classmethod
     def create_random(cls):
@@ -76,3 +77,12 @@ class Tetromino:
 
     def rotate_counter(self):
         self.rotation = (self.rotation - 1) % self.max_rotation
+
+    def clone(self):
+        """현재 블록의 상태를 복제한 새 객체 반환"""
+        new_piece = Tetromino(self.type)
+        new_piece.rotation = self.rotation
+        new_piece.x = self.x
+        new_piece.y = self.y
+        new_piece.color_id = self.color_id
+        return new_piece

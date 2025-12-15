@@ -75,3 +75,16 @@ class GameState:
             self.game_over = True
         
         return lines
+        
+    def get_ghost_piece(self):
+        """현재 블록이 바닥에 떨어질 위치(Ghost)를 계산하여 반환"""
+        if not self.current_piece:
+            return None
+            
+        ghost = self.current_piece.clone()
+        
+        # 바닥에 닿을 때까지 y를 증가시킴 (Hard Drop 시뮬레이션)
+        while self.board.is_valid_position(ghost, adj_y=1):
+            ghost.y += 1
+            
+        return ghost

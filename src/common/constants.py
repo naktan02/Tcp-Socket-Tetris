@@ -54,3 +54,15 @@ COLOR_MAGENTA= "\033[35m"
 COLOR_CYAN   = "\033[36m"
 COLOR_WHITE  = "\033[37m"
 COLOR_GRAY   = "\033[90m"
+
+
+BLOCK_COLOR_MAP = {
+    1: COLOR_CYAN,    # I 미노
+    2: COLOR_YELLOW,  # O 미노
+    3: COLOR_MAGENTA, # T 미노
+    4: COLOR_GREEN,   # S 미노
+    5: COLOR_RED,     # Z 미노
+    6: COLOR_BLUE,    # J 미노
+    7: COLOR_WHITE,   # L 미노 (주황색이 없으므로 흰색 대체)
+    8: "\033[90m",    # Garbage (회색)
+}

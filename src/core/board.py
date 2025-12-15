@@ -27,7 +27,7 @@ class Board:
         """블록을 보드에 고정"""
         for x, y in tetromino.get_blocks():
             if 0 <= y < self.HEIGHT and 0 <= x < self.WIDTH:
-                self.grid[y][x] = 1 # 단순화: 색상 구분 없이 1로 저장
+                self.grid[y][x] = tetromino.color_id
 
     def clear_lines(self):
         """꽉 찬 줄을 지우고, 지운 줄 수를 반환"""

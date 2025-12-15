@@ -20,11 +20,17 @@ class LobbyScene(BaseScene):
         super().__init__(manager)
         self.room_list = []
         self.PROMPT_LINE = 20
+        self.last_refresh_time = 0
 
     def on_enter(self):
         self._refresh_ui()
+        self.last_refresh_time = time.time()
+        self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
 
     def update(self):
+        if time.time() - self.last_refresh_time > 2.0:
+            self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
+            self.last_refresh_time = time.time()
         # 1. 입력 처리 (Non-blocking)
         cmd = self._get_input()
         if cmd:
@@ -72,6 +78,7 @@ class LobbyScene(BaseScene):
         elif cmd == 'R':
             print("[Refresh] Updating list...", end='', flush=True)
             self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
+            self.last_refresh_time = time.time()
 
         elif cmd == 'Q':
             self.manager.running = False
