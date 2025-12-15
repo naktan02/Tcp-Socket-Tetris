@@ -10,6 +10,7 @@ class SessionContext:
         self.room_id = -1
         self.game_seed = 0
         self.game_players = []
+        self.server_ip = "127.0.0.1"
         
     def reset_game_data(self):
         """방/게임 관련 데이터 초기화"""

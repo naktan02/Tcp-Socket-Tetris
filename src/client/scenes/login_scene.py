@@ -154,6 +154,7 @@ class LoginScene(BaseScene):
         if pkt.body[0] == 0: # 성공
             print("Login Success!")
             # 로비 데이터 요청 후 씬 전환
+            self.context.server_ip = self.target_ip
             self.network.send_packet(Packet(CMD_REQ_SEARCH_ROOM, b''))
             self.manager.change_scene("LOBBY")
         else:

@@ -70,8 +70,8 @@ class Renderer:
 
     # --- 각 화면 그리기 (이제 render_diff를 사용합니다) ---
 
-    def draw_lobby(self, room_list):
-        lines = self.lobby_view.draw(room_list)
+    def draw_lobby(self, room_list, server_ip=""):  
+        lines = self.lobby_view.draw(room_list, server_ip)
         self.render_diff(lines)
 
     def draw_room_wait(self, room_id, slots, ready_states, my_slot):

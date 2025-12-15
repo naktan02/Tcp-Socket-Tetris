@@ -13,14 +13,20 @@ class LobbyView:
         self.TEE_L = "├"
         self.TEE_R = "┤"
 
-    def draw(self, room_list):
+    def draw(self, room_list, server_ip= ""):
         lines = []
         width = 40
         
         lines.append(f"{self.CORNER_TL}{self.BORDER_H * width}{self.CORNER_TR}")
         title = f" {COLOR_YELLOW}TETRIS BATTLE ONLINE{COLOR_RESET}"
-        padding = width - 21
-        lines.append(f"{self.BORDER_V}{title}" + " " * padding + f"{self.BORDER_V}")
+        ip_str = f"[{server_ip}]"
+        ip_display = f"{COLOR_CYAN}{ip_str}{COLOR_RESET} "
+        title_pure_len = 21
+        ip_pure_len = len(ip_str) + 1
+        padding = width - (title_pure_len + ip_pure_len)
+        if padding < 0: padding = 0
+        header_content = title + " " * padding + ip_display
+        lines.append(f"{self.BORDER_V}{header_content}{self.BORDER_V}")
         lines.append(f"{self.TEE_L}{self.BORDER_H * width}{self.TEE_R}")
         lines.append(f"{self.BORDER_V} Available Rooms:".ljust(41) + f"{self.BORDER_V}")
         

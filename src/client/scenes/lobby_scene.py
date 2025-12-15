@@ -7,6 +7,7 @@ from src.client.scenes.base_scene import BaseScene
 from src.common.protocol import Packet
 from src.common.constants import *
 from src.client.network.router import route
+from src.common.utils import get_local_ip
 
 # Windows msvcrt import
 try:
@@ -123,6 +124,9 @@ class LobbyScene(BaseScene):
             self._refresh_ui()
 
     def _refresh_ui(self):
-        self.renderer.draw_lobby(self.room_list)
+        display_ip = self.context.server_ip
+        if display_ip in ["127.0.0.1", "localhost", "0.0.0.0"]:
+            display_ip = get_local_ip()
+        self.renderer.draw_lobby(self.room_list, display_ip)
         self.renderer.clear_line(self.PROMPT_LINE)
         self.renderer.move_cursor(1, self.PROMPT_LINE)
