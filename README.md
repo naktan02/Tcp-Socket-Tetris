@@ -4,7 +4,7 @@
 
 ---
 
-![Game play](docs\game_play.png)
+![Game play](docs/game_play.png)
 
 ## 📋 목차
 
